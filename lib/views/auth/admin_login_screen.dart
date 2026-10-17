@@ -7,6 +7,7 @@ import '../../core/responsive.dart';
 import '../../controllers/admin_auth_controller.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
+import 'admin_register_screen.dart';
 
 class AdminLoginScreen extends StatefulWidget {
   const AdminLoginScreen({super.key});
@@ -54,6 +55,12 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
       password: _passwordController.text.trim(),
       rememberMe: _rememberMe,
     );
+  }
+
+  void _openRegister() {
+    // Clear any leftover login error so it doesn't show on the next screen.
+    authController.errorMessage.value = '';
+    Get.to(() => const AdminRegisterScreen());
   }
 
   @override
@@ -399,14 +406,15 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
 
           // Submit Button
           Obx(() => CustomButton(
-                text: 'Sign In to Admin Console',
-                width: double.infinity,
-                isLoading: authController.isLoading.value,
-                icon: Icons.login_rounded,
-                onPressed: _submitLogin,
-              )),
+            text: 'Sign In to Admin Console',
+            width: double.infinity,
+            isLoading: authController.isLoading.value,
+            icon: Icons.login_rounded,
+            onPressed: _submitLogin,
+          )),
           const SizedBox(height: 18),
 
+          // Info box
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -420,11 +428,27 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Admin accounts must be provisioned by a Firebase project owner.',
+                    'Admin access must be approved by a project owner before you can sign in.',
                     style: GoogleFonts.inter(fontSize: 12, color: AppTheme.textMedium),
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Link to the register screen
+          Center(
+            child: TextButton(
+              onPressed: _openRegister,
+              child: Text(
+                'No account? Request Admin Access',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.primaryNavy,
+                ),
+              ),
             ),
           ),
         ],

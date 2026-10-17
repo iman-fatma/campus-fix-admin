@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/app_theme.dart';
+import '../../core/responsive.dart';
 import '../../core/validators.dart';
 import '../../controllers/admin_auth_controller.dart';
 import '../../widgets/custom_button.dart';
@@ -27,10 +28,10 @@ class _AdminRegisterScreenState extends State<AdminRegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
+  final _inviteController = TextEditingController();
 
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
-  bool _submitted = false;
 
   // Username availability state
   Timer? _debounce;
@@ -53,6 +54,7 @@ class _AdminRegisterScreenState extends State<AdminRegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
+    _inviteController.dispose();
     super.dispose();
   }
 
@@ -153,15 +155,26 @@ class _AdminRegisterScreenState extends State<AdminRegisterScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final ok = await authController.registerAdminRequest(
+    final ok = await authController.registerAdmin(
       name: _nameController.text.trim(),
       username: _usernameController.text,
       email: _emailController.text,
       password: _passwordController.text,
+      inviteCode: _inviteController.text,
     );
 
     if (ok && mounted) {
-      setState(() => _submitted = true);
+      // The user is now signed in AND saved as an admin. Pop back to the
+      // first route (AdminAppGate); its Obx shows the admin panel.
+      Get.until((route) => route.isFirst);
+      Get.snackbar(
+        'Welcome!',
+        'Your admin account is ready. We also sent a verification link to '
+            '${_emailController.text.trim()}.',
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+        maxWidth: 460,
+      );
     }
   }
 
@@ -169,66 +182,218 @@ class _AdminRegisterScreenState extends State<AdminRegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundLight,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: AppTheme.textDark,
-      ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 460),
-            child: _submitted ? _buildSuccess() : _buildForm(),
-          ),
-        ),
+      body: ResponsiveLayout(
+        mobile: _buildMobileLayout(),
+        desktop: _buildDesktopLayout(),
       ),
     );
   }
 
-  Widget _buildSuccess() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
+  // ── Desktop: two-panel layout ──────────────────────────────────────────────
+  Widget _buildDesktopLayout() {
+    return Row(
       children: [
-        const Icon(Icons.mark_email_read_outlined,
-            size: 64, color: AppTheme.accentTeal),
-        const SizedBox(height: 16),
-        Text(
-          'Check your email',
-          style: GoogleFonts.inter(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.textDark,
+        // Left Hero Panel
+        Expanded(
+          flex: 5,
+          child: Container(
+            color: AppTheme.sidebarBg,
+            padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 40),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Top Brand
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF2563EB), Color(0xFF0D9488)],
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.build_circle_outlined,
+                          color: Colors.white, size: 28),
+                    ),
+                    const SizedBox(width: 14),
+                    Text(
+                      'CampusFix',
+                      style: GoogleFonts.inter(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accentTeal.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'ADMIN',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.accentTeal,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                // Center Hero Content
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.1)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.admin_panel_settings,
+                              color: Color(0xFF60A5FA), size: 16),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Request Administrative Access',
+                            style: GoogleFonts.inter(
+                              color: const Color(0xFFE2E8F0),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Join the Campus Fix\nAdmin Console',
+                      style: GoogleFonts.inter(
+                        fontSize: 38,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        height: 1.2,
+                        letterSpacing: -1,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Register with your university email and a valid admin invite code issued by a project owner. Your account will be reviewed before access is granted.',
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        color: const Color(0xFF94A3B8),
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
+                    _featurePoint(Icons.verified_user_outlined,
+                        'Invite-code gated — secure by design'),
+                    const SizedBox(height: 12),
+                    _featurePoint(Icons.domain_verification_outlined,
+                        'University email domain enforced'),
+                    const SizedBox(height: 12),
+                    _featurePoint(Icons.manage_accounts_outlined,
+                        'Role-based access control across the panel'),
+                  ],
+                ),
+
+                // Footer
+                Text(
+                  'Connected to Firebase Project: campus-fix-9565f',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: const Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          'We sent a verification link to ${_emailController.text.trim()}. '
-              'Open it to verify your email. Your request has also been sent to '
-              'the project owner. You can sign in once it is approved.',
-          textAlign: TextAlign.center,
-          style: GoogleFonts.inter(
-              fontSize: 13, color: AppTheme.textMuted, height: 1.5),
-        ),
-        const SizedBox(height: 24),
-        CustomButton(
-          text: 'Back to Sign In',
-          width: double.infinity,
-          icon: Icons.arrow_back_rounded,
-          onPressed: () => Get.back(),
+
+        // Right Form Panel
+        Expanded(
+          flex: 6,
+          child: Center(
+            child: SingleChildScrollView(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 48, vertical: 32),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 460),
+                child: _buildRegisterForm(),
+              ),
+            ),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildForm() {
+  // ── Mobile layout ──────────────────────────────────────────────────────────
+  Widget _buildMobileLayout() {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF10355B), Color(0xFF0D9488)],
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(Icons.build_circle_outlined,
+                  color: Colors.white, size: 36),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'CampusFix Admin',
+              style: GoogleFonts.inter(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textDark,
+              ),
+            ),
+            Text(
+              'Request Administrative Access',
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: AppTheme.textMuted,
+              ),
+            ),
+            const SizedBox(height: 28),
+
+            _buildRegisterForm(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Shared form ────────────────────────────────────────────────────────────
+  Widget _buildRegisterForm() {
     return Form(
       key: _formKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Request Admin Access',
+            'Create Admin Account',
             style: GoogleFonts.inter(
               fontSize: 22,
               fontWeight: FontWeight.bold,
@@ -237,8 +402,8 @@ class _AdminRegisterScreenState extends State<AdminRegisterScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            'Create an account with your university email. A project owner '
-                'will review and approve it.',
+            'Register with your university email and the admin invite code '
+                'from a project owner.',
             style: GoogleFonts.inter(fontSize: 13, color: AppTheme.textMuted),
           ),
           const SizedBox(height: 24),
@@ -284,7 +449,7 @@ class _AdminRegisterScreenState extends State<AdminRegisterScreen> {
             hint: 'Your full name',
             prefixIcon: Icons.person_outline,
             validator: (v) =>
-            v == null || v.trim().length < 3 ? 'Enter your full name' : null,
+                v == null || v.trim().length < 3 ? 'Enter your full name' : null,
           ),
           const SizedBox(height: 16),
 
@@ -296,7 +461,8 @@ class _AdminRegisterScreenState extends State<AdminRegisterScreen> {
             prefixIcon: Icons.alternate_email,
             suffixIcon: _usernameSuffix(),
             validator: (_) {
-              final format = Validators.usernameFormat(_usernameController.text);
+              final format =
+                  Validators.usernameFormat(_usernameController.text);
               if (format != null) return format;
               if (_usernameStatus == _UsernameStatus.taken) {
                 return 'That username is already taken';
@@ -374,24 +540,61 @@ class _AdminRegisterScreenState extends State<AdminRegisterScreen> {
                   setState(() => _obscureConfirm = !_obscureConfirm),
             ),
             validator: (v) =>
-            v != _passwordController.text ? 'Passwords do not match' : null,
+                v != _passwordController.text ? 'Passwords do not match' : null,
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+
+          // Admin invite code
+          CustomTextField(
+            controller: _inviteController,
+            label: 'Admin Invite Code',
+            hint: 'Ask a project owner',
+            prefixIcon: Icons.vpn_key_outlined,
+            validator: (v) => v == null || v.trim().isEmpty
+                ? 'Enter the admin invite code'
+                : null,
+          ),
+          const SizedBox(height: 20),
+
+          // Info box — mirrors the one on the login screen
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.backgroundLight,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppTheme.borderLight),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline,
+                    size: 20, color: AppTheme.primaryNavy),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Admin access must be approved by a project owner before you can sign in.',
+                    style: GoogleFonts.inter(
+                        fontSize: 12, color: AppTheme.textMedium),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
 
           Obx(() => CustomButton(
-            text: 'Submit Request',
-            width: double.infinity,
-            isLoading: authController.isLoading.value,
-            icon: Icons.person_add_alt_1_rounded,
-            onPressed: _submit,
-          )),
+                text: 'Create Admin Account',
+                width: double.infinity,
+                isLoading: authController.isLoading.value,
+                icon: Icons.person_add_alt_1_rounded,
+                onPressed: _submit,
+              )),
           const SizedBox(height: 16),
 
           Center(
             child: TextButton(
               onPressed: () => Get.back(),
               child: Text(
-                'Already approved? Sign in',
+                'Already have an account? Sign in',
                 style: GoogleFonts.inter(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -402,6 +605,33 @@ class _AdminRegisterScreenState extends State<AdminRegisterScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // ── Hero feature point (desktop panel) ────────────────────────────────────
+  Widget _featurePoint(IconData icon, String text) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E3A8A).withValues(alpha: 0.5),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: const Color(0xFF60A5FA), size: 16),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: GoogleFonts.inter(
+              color: const Color(0xFFCBD5E1),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
