@@ -20,7 +20,7 @@ class AdminSidebar extends StatelessWidget {
       final isExpanded = shellController.isSidebarExpanded.value || isDrawer;
       final admin = authController.currentAdmin.value;
 
-      return Container(
+      final Widget sidebar = Container(
         width: isDrawer ? 280 : (isExpanded ? 260 : 72),
         height: double.infinity,
         decoration: BoxDecoration(
@@ -252,7 +252,12 @@ class AdminSidebar extends StatelessWidget {
             ),
           ],
         ),
-      );
+      );  // sidebar Container
+
+      // When used as a Drawer on mobile, respect the status bar / notch.
+      return isDrawer
+          ? SafeArea(right: false, child: sidebar)
+          : sidebar;
     });
   }
 

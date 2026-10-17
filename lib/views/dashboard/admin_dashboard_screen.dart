@@ -100,7 +100,7 @@ class AdminDashboardScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'Here is the live maintenance overview and complaints status across Northbridge / KFUEIT campus.',
+                            'Here is the live maintenance overview and complaints status across KFUEIT.',
                             style: GoogleFonts.inter(
                               fontSize: 13,
                               color: const Color(0xFFCBD5E1),
@@ -371,23 +371,29 @@ class AdminDashboardScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.receipt_long_rounded,
-                    color: AppTheme.primaryNavy,
-                    size: 22,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Recent Complaints & Tickets',
-                    style: GoogleFonts.inter(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textDark,
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.receipt_long_rounded,
+                      color: AppTheme.primaryNavy,
+                      size: 22,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'Recent Complaints & Tickets',
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textDark,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
               TextButton(
                 onPressed: () => shellController.setIndex(1),

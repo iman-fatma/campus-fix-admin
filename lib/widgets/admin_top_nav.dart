@@ -14,7 +14,16 @@ class AdminTopNav extends StatelessWidget implements PreferredSizeWidget {
   const AdminTopNav({super.key, required this.title});
 
   @override
-  Size get preferredSize => const Size.fromHeight(65);
+  // On mobile the SafeArea adds top padding for the status bar / notch.
+  // We add a fixed 32 px to the base 65 so Flutter sizes the AppBar slot
+  // tall enough; the actual inset is applied by SafeArea at runtime.
+  Size get preferredSize {
+    final topPadding = MediaQueryData.fromView(
+            WidgetsBinding.instance.platformDispatcher.views.first)
+        .padding
+        .top;
+    return Size.fromHeight(65 + topPadding);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,15 +31,17 @@ class AdminTopNav extends StatelessWidget implements PreferredSizeWidget {
     final authController = Get.find<AdminAuthController>();
     final isMobile = ResponsiveHelper.isMobile(context);
 
-    return Container(
-      height: 65,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          bottom: BorderSide(color: AppTheme.borderLight, width: 1),
+    return SafeArea(
+      bottom: false,
+      child: Container(
+        height: 65,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(
+            bottom: BorderSide(color: AppTheme.borderLight, width: 1),
+          ),
         ),
-      ),
       child: Row(
         children: [
           // Left: Menu toggle or Back
@@ -211,6 +222,7 @@ class AdminTopNav extends StatelessWidget implements PreferredSizeWidget {
           }),
         ],
       ),
-    );
+    ),   // Container
+    );   // SafeArea
   }
 }

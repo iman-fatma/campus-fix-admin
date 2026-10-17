@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../core/app_theme.dart';
 import '../core/responsive.dart';
 import '../models/ticket_model.dart';
@@ -85,7 +86,7 @@ class _TicketDetailSheetState extends State<TicketDetailSheet> {
       remarks: _remarksController.text.trim(),
     );
 
-    setState(() => _isSaving = false);
+    if (mounted) setState(() => _isSaving = false);
 
     if (success) {
       Get.back();
@@ -134,9 +135,165 @@ class _TicketDetailSheetState extends State<TicketDetailSheet> {
     }
   }
 
+  // ---------- map ----------
+
+  Future<void> _openMap() async {
+    final url = widget.ticket.mapsUrl;
+    if (url == null) return;
+
+    try {
+      final opened = await launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!opened) _mapError();
+    } catch (_) {
+      _mapError();
+    }
+  }
+
+  void _mapError() {
+    Get.snackbar(
+      'Could not open map',
+      'No app or browser was available to open Google Maps.',
+      snackPosition: SnackPosition.BOTTOM,
+      margin: const EdgeInsets.all(16),
+    );
+  }
+
+  // ---------- photo ----------
+
+  Widget _imageLoading() {
+    return Container(
+      color: AppTheme.backgroundLight,
+      child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+    );
+  }
+
+  Widget _imageError() {
+    return Container(
+      color: AppTheme.backgroundLight,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.broken_image_outlined, color: AppTheme.textMuted, size: 32),
+          const SizedBox(height: 6),
+          Text(
+            'Could not load photo',
+            style: GoogleFonts.inter(fontSize: 12, color: AppTheme.textMuted),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFullImage(String url) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: const EdgeInsets.all(12),
+        child: SizedBox(
+          width: double.infinity,
+          height: MediaQuery.of(ctx).size.height * 0.8,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: InteractiveViewer(
+                  minScale: 1,
+                  maxScale: 4,
+                  child: Center(
+                    child: Image.network(
+                      url,
+                      fit: BoxFit.contain,
+                      loadingBuilder: (context, child, progress) =>
+                      progress == null ? child : const CircularProgressIndicator(strokeWidth: 2),
+                      errorBuilder: (_, __, ___) => const Icon(
+                        Icons.broken_image_outlined,
+                        color: Colors.white54,
+                        size: 48,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 4,
+                right: 4,
+                child: IconButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  icon: const Icon(Icons.close, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhotoSection(String url) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Photo from student',
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textMedium,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              'Tap to enlarge',
+              style: GoogleFonts.inter(fontSize: 11, color: AppTheme.textSubtle),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: () => _showFullImage(url),
+          borderRadius: BorderRadius.circular(10),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: SizedBox(
+              width: double.infinity,
+              height: 220,
+              child: Image.network(
+                url,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, progress) =>
+                progress == null ? child : _imageLoading(),
+                errorBuilder: (_, __, ___) => _imageError(),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ---------- build ----------
+
   @override
   Widget build(BuildContext context) {
-    final createdDateStr = DateFormat('MMMM d, yyyy • h:mm a').format(widget.ticket.createdAt);
+    final t = widget.ticket;
+    final createdDateStr = DateFormat('MMMM d, yyyy • h:mm a').format(t.createdAt);
+
+    // Metadata rows; empty optional ones are skipped.
+    final metaRows = <Widget>[
+      _buildMetaRow(Icons.category_outlined, 'Category', t.category),
+      _buildMetaRow(Icons.location_on_outlined, 'Location', t.location),
+      if (t.address.isNotEmpty)
+        _buildMetaRow(Icons.map_outlined, 'Address', t.address),
+      _buildMetaRow(Icons.school_outlined, 'Reported By', t.studentLabel),
+      if (t.studentEmail.isNotEmpty)
+        _buildMetaRow(Icons.email_outlined, 'Student Email', t.studentEmail),
+      _buildMetaRow(Icons.calendar_today_outlined, 'Submitted', createdDateStr),
+    ];
 
     return Container(
       decoration: BoxDecoration(
@@ -162,7 +319,7 @@ class _TicketDetailSheetState extends State<TicketDetailSheet> {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        widget.ticket.ticketNumber,
+                        t.ticketNumber,
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -171,7 +328,7 @@ class _TicketDetailSheetState extends State<TicketDetailSheet> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    PriorityBadge(priority: widget.ticket.priority),
+                    PriorityBadge(priority: t.priority),
                   ],
                 ),
                 IconButton(
@@ -184,7 +341,7 @@ class _TicketDetailSheetState extends State<TicketDetailSheet> {
 
             // Title
             Text(
-              widget.ticket.title,
+              t.title,
               style: GoogleFonts.inter(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -194,7 +351,7 @@ class _TicketDetailSheetState extends State<TicketDetailSheet> {
             const SizedBox(height: 8),
 
             // Description
-            if (widget.ticket.description.isNotEmpty) ...[
+            if (t.description.isNotEmpty) ...[
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
@@ -204,10 +361,16 @@ class _TicketDetailSheetState extends State<TicketDetailSheet> {
                   border: Border.all(color: AppTheme.borderLight),
                 ),
                 child: Text(
-                  widget.ticket.description,
+                  t.description,
                   style: GoogleFonts.inter(fontSize: 14, color: AppTheme.textMedium),
                 ),
               ),
+              const SizedBox(height: 16),
+            ],
+
+            // Photo uploaded by the student
+            if (t.hasImage) ...[
+              _buildPhotoSection(t.imageUrl!),
               const SizedBox(height: 16),
             ],
 
@@ -221,22 +384,29 @@ class _TicketDetailSheetState extends State<TicketDetailSheet> {
               ),
               child: Column(
                 children: [
-                  _buildMetaRow(Icons.category_outlined, 'Category', widget.ticket.category),
-                  const Divider(height: 16, color: AppTheme.borderLight),
-                  _buildMetaRow(Icons.location_on_outlined, 'Location', widget.ticket.location),
-                  const Divider(height: 16, color: AppTheme.borderLight),
-                  _buildMetaRow(
-                    Icons.school_outlined,
-                    'Reported By',
-                    '${widget.ticket.studentName} (${widget.ticket.studentId})',
-                  ),
-                  const Divider(height: 16, color: AppTheme.borderLight),
-                  _buildMetaRow(Icons.email_outlined, 'Student Email', widget.ticket.studentEmail),
-                  const Divider(height: 16, color: AppTheme.borderLight),
-                  _buildMetaRow(Icons.calendar_today_outlined, 'Submitted', createdDateStr),
+                  for (int i = 0; i < metaRows.length; i++) ...[
+                    if (i > 0) const Divider(height: 16, color: AppTheme.borderLight),
+                    metaRows[i],
+                  ],
                 ],
               ),
             ),
+
+            // View on map
+            if (t.hasCoordinates) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _openMap,
+                  icon: const Icon(Icons.map_outlined, size: 18),
+                  label: Text(
+                    'View on Google Maps',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 20),
 
             // Update Status Section
@@ -317,9 +487,12 @@ class _TicketDetailSheetState extends State<TicketDetailSheet> {
             ),
             const SizedBox(height: 24),
 
-            // Action Buttons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            // Action Buttons (Wrap so narrow phones never overflow)
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              runSpacing: 8,
+              spacing: 12,
               children: [
                 TextButton.icon(
                   onPressed: _confirmDelete,
@@ -330,6 +503,7 @@ class _TicketDetailSheetState extends State<TicketDetailSheet> {
                   ),
                 ),
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     CustomButton(
                       text: 'Cancel',
@@ -354,8 +528,12 @@ class _TicketDetailSheetState extends State<TicketDetailSheet> {
 
   Widget _buildMetaRow(IconData icon, String label, String value) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 16, color: AppTheme.textMuted),
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Icon(icon, size: 16, color: AppTheme.textMuted),
+        ),
         const SizedBox(width: 8),
         SizedBox(
           width: 110,

@@ -7,6 +7,9 @@ import '../models/ticket_model.dart';
 class TicketsController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  // Single source of truth: student app writes here, admin reads here.
+  static const String _collection = 'complaints';
+
   final RxList<TicketModel> allTickets = <TicketModel>[].obs;
   final RxBool isLoading = true.obs;
   final RxString errorMessage = ''.obs;
@@ -31,18 +34,45 @@ class TicketsController extends GetxController {
     super.onClose();
   }
 
+  /// Complaints come from the student app, which does not store every field
+  /// the admin TicketModel expects (ticket number, a single "location" string).
+  /// We fill those in here, so the model and the screens keep working.
+  /// All original fields (imageUrl, latitude, longitude...) are kept.
+  Map<String, dynamic> _normalize(Map<String, dynamic> raw, String id) {
+    final d = Map<String, dynamic>.from(raw);
+
+    d['ticketNumber'] ??=
+    '#${(id.length >= 6 ? id.substring(0, 6) : id).toUpperCase()}';
+
+    // createdAt is briefly null on a just-submitted complaint
+    d['createdAt'] ??= Timestamp.now();
+
+    if (d['location'] == null) {
+      final parts = [d['locationDetail'], d['address']]
+          .whereType<String>()
+          .where((s) => s.trim().isNotEmpty);
+      d['location'] = parts.join(' • ');
+    }
+
+    // Complaints saved before the vocabulary change used 'pending'
+    final status = (d['status'] ?? 'Open').toString();
+    d['status'] = status.toLowerCase() == 'pending' ? 'Open' : status;
+
+    return d;
+  }
+
   void bindTicketsStream() {
     isLoading.value = true;
     _ticketsSubscription?.cancel();
 
     _ticketsSubscription = _firestore
-        .collection('tickets')
+        .collection(_collection)
         .orderBy('createdAt', descending: true)
         .snapshots()
         .listen(
-      (snapshot) {
+          (snapshot) {
         final list = snapshot.docs
-            .map((doc) => TicketModel.fromMap(doc.data(), doc.id))
+            .map((doc) => TicketModel.fromMap(_normalize(doc.data(), doc.id), doc.id))
             .toList();
 
         allTickets.value = list;
@@ -125,7 +155,7 @@ class TicketsController extends GetxController {
         updateData['remarks'] = remarks;
       }
 
-      await _firestore.collection('tickets').doc(ticketId).update(updateData);
+      await _firestore.collection(_collection).doc(ticketId).update(updateData);
       return true;
     } catch (e) {
       debugPrint('Error updating ticket: $e');
@@ -138,10 +168,10 @@ class TicketsController extends GetxController {
     }
   }
 
-  /// Create new maintenance ticket
+  /// Create new maintenance ticket (admin-created)
   Future<bool> createTicket(TicketModel ticket) async {
     try {
-      await _firestore.collection('tickets').doc(ticket.id).set(ticket.toMap());
+      await _firestore.collection(_collection).doc(ticket.id).set(ticket.toMap());
       return true;
     } catch (e) {
       debugPrint('Error creating ticket: $e');
@@ -152,12 +182,11 @@ class TicketsController extends GetxController {
   /// Delete a ticket
   Future<bool> deleteTicket(String ticketId) async {
     try {
-      await _firestore.collection('tickets').doc(ticketId).delete();
+      await _firestore.collection(_collection).doc(ticketId).delete();
       return true;
     } catch (e) {
       debugPrint('Error deleting ticket: $e');
       return false;
     }
   }
-
 }
