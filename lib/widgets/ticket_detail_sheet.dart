@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -161,6 +162,19 @@ class _TicketDetailSheetState extends State<TicketDetailSheet> {
     );
   }
 
+  // ---------- copy ----------
+
+  Future<void> _copy(String label, String value) async {
+    await Clipboard.setData(ClipboardData(text: value));
+    Get.snackbar(
+      'Copied',
+      '$label copied to clipboard.',
+      snackPosition: SnackPosition.BOTTOM,
+      margin: const EdgeInsets.all(16),
+      duration: const Duration(seconds: 2),
+    );
+  }
+
   // ---------- photo ----------
 
   Widget _imageLoading() {
@@ -282,6 +296,7 @@ class _TicketDetailSheetState extends State<TicketDetailSheet> {
   Widget build(BuildContext context) {
     final t = widget.ticket;
     final createdDateStr = DateFormat('MMMM d, yyyy • h:mm a').format(t.createdAt);
+    final reg = t.registrationNo;
 
     // Metadata rows; empty optional ones are skipped.
     final metaRows = <Widget>[
@@ -289,9 +304,19 @@ class _TicketDetailSheetState extends State<TicketDetailSheet> {
       _buildMetaRow(Icons.location_on_outlined, 'Location', t.location),
       if (t.address.isNotEmpty)
         _buildMetaRow(Icons.map_outlined, 'Address', t.address),
-      _buildMetaRow(Icons.school_outlined, 'Reported By', t.studentLabel),
-      if (t.studentEmail.isNotEmpty)
-        _buildMetaRow(Icons.email_outlined, 'Student Email', t.studentEmail),
+      _buildMetaRow(Icons.school_outlined, 'Reported By', t.studentName),
+      _buildMetaRow(
+        Icons.badge_outlined,
+        'Registration No',
+        reg,
+        copyLabel: reg.isEmpty ? null : 'Registration number',
+      ),
+      _buildMetaRow(
+        Icons.email_outlined,
+        'Student Email',
+        t.studentEmail,
+        copyLabel: t.studentEmail.isEmpty ? null : 'Email',
+      ),
       _buildMetaRow(Icons.calendar_today_outlined, 'Submitted', createdDateStr),
     ];
 
@@ -301,232 +326,240 @@ class _TicketDetailSheetState extends State<TicketDetailSheet> {
         borderRadius: BorderRadius.circular(16),
       ),
       padding: const EdgeInsets.all(24),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header Bar
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryNavy.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        t.ticketNumber,
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryNavy,
+      child: SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header Bar
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryNavy.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          t.ticketNumber,
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryNavy,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    PriorityBadge(priority: t.priority),
-                  ],
-                ),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close, color: AppTheme.textMuted),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Title
-            Text(
-              t.title,
-              style: GoogleFonts.inter(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textDark,
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            // Description
-            if (t.description.isNotEmpty) ...[
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppTheme.backgroundLight,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.borderLight),
-                ),
-                child: Text(
-                  t.description,
-                  style: GoogleFonts.inter(fontSize: 14, color: AppTheme.textMedium),
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-
-            // Photo uploaded by the student
-            if (t.hasImage) ...[
-              _buildPhotoSection(t.imageUrl!),
-              const SizedBox(height: 16),
-            ],
-
-            // Metadata Grid
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppTheme.borderLight),
-              ),
-              child: Column(
-                children: [
-                  for (int i = 0; i < metaRows.length; i++) ...[
-                    if (i > 0) const Divider(height: 16, color: AppTheme.borderLight),
-                    metaRows[i],
-                  ],
+                      const SizedBox(width: 8),
+                      PriorityBadge(priority: t.priority),
+                    ],
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close, color: AppTheme.textMuted),
+                  ),
                 ],
               ),
-            ),
-
-            // View on map
-            if (t.hasCoordinates) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _openMap,
-                  icon: const Icon(Icons.map_outlined, size: 18),
-                  label: Text(
-                    'View on Google Maps',
-                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-                  ),
+              const SizedBox(height: 16),
+        
+              // Title
+              Text(
+                t.title,
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textDark,
                 ),
               ),
-            ],
-            const SizedBox(height: 20),
-
-            // Update Status Section
-            Text(
-              'Change Ticket Status',
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textDark,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _statuses.map((status) {
-                final isSelected = _selectedStatus.toLowerCase() == status.toLowerCase();
-                return ChoiceChip(
-                  label: Text(status),
-                  selected: isSelected,
-                  onSelected: (val) {
-                    if (val) setState(() => _selectedStatus = status);
-                  },
-                  labelStyle: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                    color: isSelected ? Colors.white : AppTheme.textMedium,
+              const SizedBox(height: 8),
+        
+              // Description
+              if (t.description.isNotEmpty) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.backgroundLight,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.borderLight),
                   ),
-                  selectedColor: AppTheme.primaryNavy,
-                  backgroundColor: AppTheme.backgroundLight,
-                  showCheckmark: false,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    side: BorderSide(
-                      color: isSelected ? AppTheme.primaryNavy : AppTheme.borderLight,
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 18),
-
-            // Assign Technician
-            Text(
-              'Assign Technician / Maintenance Staff',
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textMedium,
-              ),
-            ),
-            const SizedBox(height: 6),
-            TextField(
-              controller: _technicianController,
-              decoration: const InputDecoration(
-                hintText: 'e.g. Engr. Tariq, Electrician Bashir, Carpentry Team',
-                prefixIcon: Icon(Icons.engineering_outlined, size: 20),
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            // Remarks / Resolution note
-            Text(
-              'Resolution Note / Admin Remarks',
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textMedium,
-              ),
-            ),
-            const SizedBox(height: 6),
-            TextField(
-              controller: _remarksController,
-              maxLines: 2,
-              decoration: const InputDecoration(
-                hintText: 'Enter maintenance details, replacement parts, or status comments...',
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Action Buttons (Wrap so narrow phones never overflow)
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              runSpacing: 8,
-              spacing: 12,
-              children: [
-                TextButton.icon(
-                  onPressed: _confirmDelete,
-                  icon: const Icon(Icons.delete_outline, color: AppTheme.rejectedText, size: 20),
-                  label: Text(
-                    'Delete',
-                    style: GoogleFonts.inter(color: AppTheme.rejectedText, fontWeight: FontWeight.w600),
+                  child: Text(
+                    t.description,
+                    style: GoogleFonts.inter(fontSize: 14, color: AppTheme.textMedium),
                   ),
                 ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+                const SizedBox(height: 16),
+              ],
+        
+              // Photo uploaded by the student
+              if (t.hasImage) ...[
+                _buildPhotoSection(t.imageUrl!),
+                const SizedBox(height: 16),
+              ],
+        
+              // Metadata Grid
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.borderLight),
+                ),
+                child: Column(
                   children: [
-                    CustomButton(
-                      text: 'Cancel',
-                      variant: ButtonVariant.outline,
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                    const SizedBox(width: 12),
-                    CustomButton(
-                      text: 'Save Changes',
-                      isLoading: _isSaving,
-                      onPressed: _saveChanges,
-                    ),
+                    for (int i = 0; i < metaRows.length; i++) ...[
+                      if (i > 0) const Divider(height: 16, color: AppTheme.borderLight),
+                      metaRows[i],
+                    ],
                   ],
                 ),
+              ),
+        
+              // View on map
+              if (t.hasCoordinates) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _openMap,
+                    icon: const Icon(Icons.map_outlined, size: 18),
+                    label: Text(
+                      'View on Google Maps',
+                      style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
               ],
-            ),
-          ],
+              const SizedBox(height: 20),
+        
+              // Update Status Section
+              Text(
+                'Change Ticket Status',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textDark,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _statuses.map((status) {
+                  final isSelected = _selectedStatus.toLowerCase() == status.toLowerCase();
+                  return ChoiceChip(
+                    label: Text(status),
+                    selected: isSelected,
+                    onSelected: (val) {
+                      if (val) setState(() => _selectedStatus = status);
+                    },
+                    labelStyle: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                      color: isSelected ? Colors.white : AppTheme.textMedium,
+                    ),
+                    selectedColor: AppTheme.primaryNavy,
+                    backgroundColor: AppTheme.backgroundLight,
+                    showCheckmark: false,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(
+                        color: isSelected ? AppTheme.primaryNavy : AppTheme.borderLight,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 18),
+        
+              // Assign Technician
+              Text(
+                'Assign Technician / Maintenance Staff',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textMedium,
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _technicianController,
+                decoration: const InputDecoration(
+                  hintText: 'e.g. Engr. Tariq, Electrician Bashir, Carpentry Team',
+                  prefixIcon: Icon(Icons.engineering_outlined, size: 20),
+                ),
+              ),
+              const SizedBox(height: 14),
+        
+              // Remarks / Resolution note
+              Text(
+                'Resolution Note / Admin Remarks',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textMedium,
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _remarksController,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  hintText: 'Enter maintenance details, replacement parts, or status comments...',
+                ),
+              ),
+              const SizedBox(height: 24),
+        
+              // Action Buttons (Wrap so narrow phones never overflow)
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                runSpacing: 8,
+                spacing: 12,
+                children: [
+                  TextButton.icon(
+                    onPressed: _confirmDelete,
+                    icon: const Icon(Icons.delete_outline, color: AppTheme.rejectedText, size: 20),
+                    label: Text(
+                      'Delete',
+                      style: GoogleFonts.inter(color: AppTheme.rejectedText, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CustomButton(
+                        text: 'Cancel',
+                        variant: ButtonVariant.outline,
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                      const SizedBox(width: 12),
+                      CustomButton(
+                        text: 'Save Changes',
+                        isLoading: _isSaving,
+                        onPressed: _saveChanges,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildMetaRow(IconData icon, String label, String value) {
+  /// One label/value row. If [copyLabel] is given, a copy button is shown.
+  Widget _buildMetaRow(
+      IconData icon,
+      String label,
+      String value, {
+        String? copyLabel,
+      }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -547,7 +580,7 @@ class _TicketDetailSheetState extends State<TicketDetailSheet> {
           ),
         ),
         Expanded(
-          child: Text(
+          child: SelectableText(
             value.isEmpty ? 'N/A' : value,
             style: GoogleFonts.inter(
               fontSize: 13,
@@ -556,6 +589,15 @@ class _TicketDetailSheetState extends State<TicketDetailSheet> {
             ),
           ),
         ),
+        if (copyLabel != null && value.isNotEmpty)
+          InkWell(
+            onTap: () => _copy(copyLabel, value),
+            borderRadius: BorderRadius.circular(6),
+            child: const Padding(
+              padding: EdgeInsets.all(4),
+              child: Icon(Icons.copy_rounded, size: 16, color: AppTheme.textMuted),
+            ),
+          ),
       ],
     );
   }
